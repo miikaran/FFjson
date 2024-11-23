@@ -1,0 +1,27 @@
+{
+    "id": "qhvswuhm",
+    "comment": "Test video",
+    "resolution": [1920, 1080],
+    "settings": { "fps": 30 },
+    "elements": [
+        {
+            "id": "testivideo",
+            "type": "video",
+            "duration": 5,
+            "src": "./test.mp4",
+            "settings": {
+                "width": 400,
+                "height": 600
+            }
+        },
+        {
+            "id": "testiteksti",
+            "type": "text",
+            "text": "TESTIVIDEO",
+            "settings": {
+                "fontSize": "10vw",
+                "fontColor": "red"
+            }
+        }
+    ]
+  }
