@@ -35,13 +35,16 @@ class Clip:
 
 class Input(Clip):
  
-    def __init__(self, id, type, file=None, duration=None, format=None, filters=[]):
-        super().__init__(id, type, filters)
-        if type == "text":
-            file = "color=c=black:s=640x720:d=10"
-        self.file = file
-        self.format = format
-        self.duration = duration
+    def __init__(self, clip):
+        super().__init__(
+            clip["id"], 
+            clip["type"], 
+            clip["filters"]
+        )
+        self.clip = clip
+        self.file = "color=c=black:s=640x720:d=10" if type == "text" else clip.get("file")
+        self.format = clip.get("format")
+        self.duration = clip.get("duration")
         self.input_mappings = {
             "file": "-i",
             "format": "-f",
@@ -63,9 +66,8 @@ class Input(Clip):
         return " ".join(self.input_parts) if self.input_parts else None
 
 
-class Track(Clip):
-    def __init__(self, id, clip_type, clip, clip_index, filters=[]):
-        super().__init__(id, clip_type, filters)
+class Track():
+    def __init__(self, clip, clip_index):
         self.clip = clip
         self.clip_index = clip_index
         self.filters = self.clip.get("filters", [])
@@ -136,11 +138,11 @@ class JsonToFFmpeg:
     def _generate_ffmpeg_parts(self):
         all_clips = self.clip_parser.get_all_clips()
         for i, clip in enumerate(all_clips):
-            input_parser = Input(**clip)
+            input_parser = Input(clip)
             input_part = input_parser.get_input()
             if input_part:
                 self.inputs.append(input_part)
-            track_parser = Track(clip["id"], clip["type"], clip, i+1)
+            track_parser = Track(clip, i+1)
             track_part = track_parser.get_tracks()
             if track_part:
                 self.tracks.append(track_part)
