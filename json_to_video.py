@@ -1,6 +1,6 @@
 import json
 
-class ClipDataParser:
+class ClipsParser:
 
     def __init__(self, source):
         self.source = source
@@ -25,7 +25,7 @@ class ClipDataParser:
         return self.videos + self.audios + self.texts
 
 
-class ClipParser:
+class Clip:
   
     def __init__(self, id, clip_type, filters):
         self.id = id
@@ -33,7 +33,7 @@ class ClipParser:
         self.filters = filters
 
 
-class InputParser(ClipParser):
+class Input(Clip):
  
     def __init__(self, id, type, file=None, duration=None, format=None, filters=[]):
         super().__init__(id, type, filters)
@@ -63,7 +63,7 @@ class InputParser(ClipParser):
         return " ".join(self.input_parts) if self.input_parts else None
 
 
-class TrackParser(ClipParser):
+class Track(Clip):
     def __init__(self, id, clip_type, clip, clip_index, filters=[]):
         super().__init__(id, clip_type, filters)
         self.clip = clip
@@ -118,7 +118,7 @@ class JsonToFFmpeg:
     def __init__(self, json_file):
         self.json_data = self._read_json_from_file(json_file)
         clips = self._get_clips()
-        self.clip_parser = ClipDataParser(clips)
+        self.clip_parser = ClipsParser(clips)
         self.inputs = []
         self.tracks = []
         self.outputs = []
@@ -136,11 +136,11 @@ class JsonToFFmpeg:
     def _generate_ffmpeg_parts(self):
         all_clips = self.clip_parser.get_all_clips()
         for i, clip in enumerate(all_clips):
-            input_parser = InputParser(**clip)
+            input_parser = Input(**clip)
             input_part = input_parser.get_input()
             if input_part:
                 self.inputs.append(input_part)
-            track_parser = TrackParser(clip["id"], clip["type"], clip, i+1)
+            track_parser = Track(clip["id"], clip["type"], clip, i+1)
             track_part = track_parser.get_tracks()
             if track_part:
                 self.tracks.append(track_part)
