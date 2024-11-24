@@ -1,153 +1,129 @@
 import json
-from dataclasses import dataclass, field, fields
 
-@dataclass
-class ClipParser():
+class ClipDataParser:
 
-    CLIP_TYPES:list = field(
-        init=False, 
-        default_factory=["video", "audio", "text"]
-    )
-    videos:list = field(init=False)
-    audios:list = field(init=False)
-    texts:list = field(init=False)
-    source:list
-
-    def __post_init__(self):
+    def __init__(self, source):
+        self.source = source
+        self.clip_types = ["video", "audio", "text"]
+        self.videos = []
+        self.audios = []
+        self.texts = []
         self.parse_clips(self.source)
     
     def parse_clips(self, clips):
-        for clip in enumerate(clips):
-            type = clip.get("type", None)
-            if not (type and type in self.CLIP_TYPES):
-                continue
-            if type == "video":
-                self.videos.append(clip)
-            elif type == "audio":
-                self.audios.append(clip)
-            elif type == "text":
-                self.texts.append(clip)
+        for clip in clips:
+            clip_type = clip.get("type", None)
+            if clip_type and clip_type in self.clip_types:
+                if clip_type == "video":
+                    self.videos.append(clip)
+                elif clip_type == "audio":
+                    self.audios.append(clip)
+                elif clip_type == "text":
+                    self.texts.append(clip)
     
     def get_all_clips(self):
-        return [getattr(clip) for clip in fields(self)]
+        return self.videos + self.audios + self.texts
 
 
+class ClipParser:
+  
+    def __init__(self, id, clip_type, filters):
+        self.id = id
+        self.type = clip_type
+        self.filters = filters
 
 
-@dataclass
-class InputParser():
-
-    inputMappings = {
+class InputParser(ClipParser):
+ 
+    def __init__(self, id, type, file=None, duration=None, format=None, filters=[]):
+        super().__init__(id, type, filters)
+        if type == "text":
+            file = "color=c=black:s=640x720:d=10"
+        self.file = file
+        self.format = format
+        self.duration = duration
+        self.input_mappings = {
             "file": "-i",
             "format": "-f",
             "duration": "-t",
             "startTime": "-ss",
             "endTime": "-t"
         }
-    type:str
-    file:str
-    format:str
-    duration:int
-    start_time:int
-    end_time:int
-
-    input_parts:list = field(init=False)
-
-    def __post_init__(self):
-        if type in ("video", "audio"):
+        self.input_parts = []
+        if self.type in ("video", "audio", "text"):
             self.build_input()
 
     def build_input(self):
-        for field in fields(self):
-            ffmpeg_label = self.inputMappings.get(field.name, None)
-            field_value = getattr(self, field)
-            if not (ffmpeg_label and field_value):
-                continue
-            part = f"{ffmpeg_label} {field_value}"
-            self.input_parts.append(part)
+        for field, value in self.__dict__.items():
+            ffmpeg_label = self.input_mappings.get(field)
+            if ffmpeg_label and value:
+                self.input_parts.append(f"{ffmpeg_label} {value}")
     
     def get_input(self):
-        if not self.input_parts:
-            print("No inputs found")
-            return
-        return " ".join(self.input_parts)
-    
+        return " ".join(self.input_parts) if self.input_parts else None
 
-@dataclass
-class TrackParser():
 
-    filter_mappings = {
-        "text": "drawtext=text",
-        "fontSize": "fontsize",
-        "fontColor": "fontcolor",
-        "scale": "scale"
-    }
-    type_to_label_mapping = {
-        "video": "v",
-        "audio": "a",
-    }
-    clips:list
-    track_parts:list = field(
-        init=False, 
-        default_factory=[]
-        )
-
-    def __post_init__(self):
+class TrackParser(ClipParser):
+    def __init__(self, id, clip_type, clip, clip_index, filters=[]):
+        super().__init__(id, clip_type, filters)
+        self.clip = clip
+        self.clip_index = clip_index
+        self.filters = self.clip.get("filters", [])
+        self.filter_mappings = {
+            "text": "drawtext=text",
+            "fontSize": "fontsize",
+            "fontColor": "fontcolor",
+            "scale": "scale"
+        }
+        self.type_to_label_mapping = {
+            "video": "v",
+            "audio": "a",
+            "text": "v"
+        }
+        self.track_parts = []
         self.build_tracks()
 
     def build_tracks(self):
-        for i, clip in enumerate(self.clips):
-            type = clip.get("type", None)
-            filters = clip.get("filters", None)
-            if not (type and filters):
-                continue
-            for i, (filter, value) in enumerate(filters.items()):
-                track_part = self._process_filter(type, i, len(filters), filter, value)
-                if not track_part:
-                    continue
-                self.track_parts.append(track_part)
-
-    def _process_filter(self, clip_type, clip_index, filters_len, filter, value):
-        type_label = self.type_to_label_mapping.get(clip_type, None)
-        if not type_label:
-            print(f"Type label not found for clip type: {clip_type}")
+        clip_type = self.clip.get("type")
+        filters = self.clip.get("filters", {})
+        if not (clip_type and filters):
             return
-        source_stream_specifier = f"[{clip_index}:{type_label}]"
-        reference_stream_specifier = f"[{clip_index}:{type_label}];"
+        type_label = self.type_to_label_mapping.get(clip_type)
+        if not type_label:
+            raise ValueError(f"Invalid type label for clip type: {clip_type}")    
+        source_stream_specifier = f"[{self.clip_index-1}:{type_label}]"
+        reference_stream_specifier = f"[{self.clip_index}:{type_label}];"
         filter_parts = [source_stream_specifier]
-        if filter in self.filter_mappings:
-            mapped_filter = self.filter_mappings.get(filter, None)
-            if not mapped_filter:
-                return
-            filter_parts.append(f"{mapped_filter}={value}")
-            if clip_index < filters_len - 1:
-                filter_parts.append(":")
+        for i, (filter_name, value) in enumerate(filters.items()):
+            filter_part = self._process_filter(i, len(filters), filter_name, value)
+            if filter_part:
+                filter_parts.append(filter_part)
         filter_parts.append(reference_stream_specifier)
-        return " ".join(filter_parts)
+        self.track_parts.append("".join(filter_parts))
+
+    def _process_filter(self, clip_index, filters_len, filter_name, value):
+        filter_parts = ""
+        if filter_name in self.filter_mappings:
+            mapped_filter = self.filter_mappings[filter_name]
+            filter_parts += f"{mapped_filter}={value}"
+            if clip_index < filters_len - 1:
+                filter_parts += ":"
+        return filter_parts
     
     def get_tracks(self):
-        if not self.track_parts:
-            print("No tracks found")
-            return
-        return "\\".join(self.track_parts)
-    
+        return " \\".join(self.track_parts)
 
-class JsonToFFmpeg():
 
-    inputs:list     = []
-    tracks:list     = []
-    outputs:list    = []
-
-    json_data:dict  = {}
-    clip_parser     = None
-
+class JsonToFFmpeg:
     def __init__(self, json_file):
         self.json_data = self._read_json_from_file(json_file)
         clips = self._get_clips()
-        self.clip_parser = ClipParser(clips)
+        self.clip_parser = ClipDataParser(clips)
+        self.inputs = []
+        self.tracks = []
+        self.outputs = []
 
-    @staticmethod
-    def _read_json_from_file(json_file):
+    def _read_json_from_file(self, json_file):
         try:
             with open(json_file, "r") as f:
                 return json.load(f)
@@ -156,26 +132,24 @@ class JsonToFFmpeg():
 
     def _get_clips(self):
         return self.json_data.get("clips", [])
-    
+
     def _generate_ffmpeg_parts(self):
         all_clips = self.clip_parser.get_all_clips()
-        for clip in all_clips:
+        for i, clip in enumerate(all_clips):
             input_parser = InputParser(**clip)
             input_part = input_parser.get_input()
-            if not input_part:
-                continue
-            self.inputs.append(input_part)
-            track_parser = TrackParser(**clip)
+            if input_part:
+                self.inputs.append(input_part)
+            track_parser = TrackParser(clip["id"], clip["type"], clip, i+1)
             track_part = track_parser.get_tracks()
-            if not track_part:
-                continue
-            self.tracks.append(track_part)
-    
+            if track_part:
+                self.tracks.append(track_part)
+
     def build_ffmpeg_from_parts(self):
-        return " ".join([self.input, self.tracks, self.output])
-        
+        return " ".join(self.inputs + self.tracks + self.outputs)
+
 
 if __name__ == "__main__":
     video = JsonToFFmpeg("video.json")
     video._generate_ffmpeg_parts()
-    print(video.inputs)
+    print(video.build_ffmpeg_from_parts())

@@ -8,17 +8,16 @@
             "id": "testivideo",
             "type": "video",
             "duration": 5,
-            "src": "./test.mp4",
+            "file": "./test.mp4",
             "filters": {
                 "scale": "1920:1080"
             },
-            "format": "mp4",
-            "codec": "codekki",
-            "bitrate": 45
+            "format": "mp4"
         },
         {
             "id": "testiteksti",
             "type": "text",
+            "duration": 5,
             "filters": {
                 "text": "TESTIVIDEO",
                 "fontSize": "10vw",
