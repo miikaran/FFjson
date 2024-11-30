@@ -5,24 +5,55 @@
     "fps": 30,
     "clips": [
         {
-            "id": "testivideo",
-            "type": "video",
-            "duration": 5,
-            "file": "./test.mp4",
-            "filters": {
-                "scale": "1920:1080"
-            },
-            "format": "mp4"
+        "id": "clip1",
+        "type": "video",
+        "file": "video1.mp4",
+        "format": "mp4",
+        "frameRate": "30",
+        "pixelFormat": "yuv420p",
+        "codec": "libx264",
+        "bitRate": "1000k",
+        "duration": "60",
+        "startTime": "0",
+        "endTime": "60",
+        "additionalOptions": ["-vf", "scale=1280:720"]
         },
         {
-            "id": "testiteksti",
-            "type": "text",
-            "duration": 5,
-            "filters": {
-                "text": "TESTIVIDEO",
-                "fontSize": "10vw",
-                "fontColor": "red"
-            }
+        "id": "clip2",
+        "type": "audio",
+        "file": "audio1.mp3",
+        "format": "mp3",
+        "codec": "aac",
+        "bitRate": "192k",
+        "sampleRate": "44100",
+        "channels": "2",
+        "duration": "60",
+        "startTime": "0",
+        "endTime": "60"
+        },
+        {
+        "id": "clip3",
+        "type": "text",
+        "filters": {
+            "text": "Sample Text Overlay",
+            "fontSize": "24",
+            "fontColor": "white",
+            "borderWidth": "2",
+            "borderColor": "black",
+            "shadowColor": "black",
+            "shadowX": "2",
+            "shadowY": "2"
+        },
+        "duration": "60",
+        "startTime": "0",
+        "endTime": "60"
         }
-    ]
+    ],
+    "output": {
+        "outputFile": "final_output.mp4",
+        "codec": "libx264",
+        "audioCodec": "aac",
+        "resolution": "1280x720",
+        "additionalOptions": ["-preset", "fast", "-crf", "23"]
+    }
   }

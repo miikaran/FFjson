@@ -1,0 +1,41 @@
+{
+    "input_mappings": {
+      "file": "-i",
+      "format": "-f",
+      "frame_rate": "-r",
+      "pixel_format": "-pix_fmt",
+      "codec": "-c",
+      "bit_rate": "-b:v",
+      "sample_rate": "-ar",
+      "channels": "-ac",
+      "duration": "-t",
+      "start_time": "-ss",
+      "end_time": "-to"
+    },
+    "filter_mappings": {
+      "text": "drawtext=text",
+      "fontSize": "fontsize",
+      "fontColor": "fontcolor",
+      "borderWidth": "borderw",
+      "borderColor": "bordercolor",
+      "shadowColor": "shadowcolor",
+      "shadowX": "shadowx",
+      "shadowY": "shadowy",
+      "scale": "scale",
+      "hue": "hue",
+      "crop": "crop",
+      "overlay": "overlay",
+      "rotate": "rotate",
+      "fps": "fps",
+      "setpts": "setpts",
+      "aresample": "aresample",
+      "volume": "volume",
+      "pan": "pan"
+    },
+    "type_to_label_mapping": {
+      "video": "v",
+      "audio": "a",
+      "text": "v"
+    }
+}
+  

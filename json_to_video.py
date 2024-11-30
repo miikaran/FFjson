@@ -1,7 +1,7 @@
 import json
 
-class ClipsParser:
 
+class ClipsParser:
     def __init__(self, source):
         self.source = source
         self.clip_types = ["video", "audio", "text"]
@@ -26,7 +26,6 @@ class ClipsParser:
 
 
 class Clip:
-  
     def __init__(self, id, clip_type, filters):
         self.id = id
         self.type = clip_type
@@ -34,24 +33,29 @@ class Clip:
 
 
 class Input(Clip):
- 
-    def __init__(self, clip):
+    def __init__(self, clip, config):
         super().__init__(
             clip["id"], 
             clip["type"], 
-            clip["filters"]
+            clip.get("filters", [])
         )
         self.clip = clip
-        self.file = "color=c=black:s=640x720:d=10" if type == "text" else clip.get("file")
+        self.config = config
+        self.file = "color=c=black:s=640x720:d=10" if clip["type"] == "text" else clip.get("file")
         self.format = clip.get("format")
+        self.frame_rate = clip.get("frameRate")
+        self.pixel_format = clip.get("pixelFormat")
+        self.codec = clip.get("codec")
+        self.bit_rate = clip.get("bitRate")
+        self.sample_rate = clip.get("sampleRate")
+        self.channels = clip.get("channels")
         self.duration = clip.get("duration")
-        self.input_mappings = {
-            "file": "-i",
-            "format": "-f",
-            "duration": "-t",
-            "startTime": "-ss",
-            "endTime": "-t"
-        }
+        self.start_time = clip.get("startTime")
+        self.end_time = clip.get("endTime")
+        self.additional_options = clip.get("additionalOptions", [])
+
+        # Use mappings from config
+        self.input_mappings = self.config["input_mappings"]
         self.input_parts = []
         if self.type in ("video", "audio", "text"):
             self.build_input()
@@ -61,27 +65,29 @@ class Input(Clip):
             ffmpeg_label = self.input_mappings.get(field)
             if ffmpeg_label and value:
                 self.input_parts.append(f"{ffmpeg_label} {value}")
+        if self.additional_options:
+            self.input_parts.extend(self.additional_options)
     
     def get_input(self):
         return " ".join(self.input_parts) if self.input_parts else None
 
 
-class Track():
-    def __init__(self, clip, clip_index):
+class Track(Clip):
+    def __init__(self, clip, clip_index, config):
+        super().__init__(
+            clip["id"], 
+            clip["type"], 
+            clip.get("filters", [])
+        )
         self.clip = clip
         self.clip_index = clip_index
-        self.filters = self.clip.get("filters", [])
-        self.filter_mappings = {
-            "text": "drawtext=text",
-            "fontSize": "fontsize",
-            "fontColor": "fontcolor",
-            "scale": "scale"
-        }
-        self.type_to_label_mapping = {
-            "video": "v",
-            "audio": "a",
-            "text": "v"
-        }
+        self.config = config
+        self.filters = self.clip.get("filters", {})
+        self.additional_options = clip.get("additionalOptions", [])
+        
+        # Use mappings from config
+        self.filter_mappings = self.config["filter_mappings"]
+        self.type_to_label_mapping = self.config["type_to_label_mapping"]
         self.track_parts = []
         self.build_tracks()
 
@@ -94,7 +100,7 @@ class Track():
         if not type_label:
             raise ValueError(f"Invalid type label for clip type: {clip_type}")    
         source_stream_specifier = f"[{self.clip_index-1}:{type_label}]"
-        reference_stream_specifier = f"[{self.clip_index}:{type_label}];"
+        reference_stream_specifier = f"[{self.clip_index}:{type_label}]"
         filter_parts = [source_stream_specifier]
         for i, (filter_name, value) in enumerate(filters.items()):
             filter_part = self._process_filter(i, len(filters), filter_name, value)
@@ -102,6 +108,8 @@ class Track():
                 filter_parts.append(filter_part)
         filter_parts.append(reference_stream_specifier)
         self.track_parts.append("".join(filter_parts))
+        if self.additional_options:
+            self.track_parts.extend(self.additional_options)
 
     def _process_filter(self, clip_index, filters_len, filter_name, value):
         filter_parts = ""
@@ -116,14 +124,34 @@ class Track():
         return " \\".join(self.track_parts)
 
 
+class Output:
+    def __init__(self, output_file="output.mp4", codec="libx264", audio_codec="aac", resolution=None, additional_options=None):
+        self.output_file = output_file
+        self.codec = codec
+        self.audio_codec = audio_codec
+        self.resolution = resolution
+        self.additional_options = additional_options or []
+
+    def build_output(self):
+        output_parts = [f"-c:v {self.codec}", f"-c:a {self.audio_codec}"]
+        if self.resolution:
+            output_parts.append(f"-s {self.resolution}")
+        output_parts.extend(self.additional_options)
+        output_parts.append(self.output_file)
+        return " ".join(output_parts)
+
+
 class JsonToFFmpeg:
-    def __init__(self, json_file):
+    def __init__(self, json_file, config_file, output_file="output.mp4"):
         self.json_data = self._read_json_from_file(json_file)
+        self.config_data = self._read_json_from_file(config_file)
+        self.output_file = output_file
         clips = self._get_clips()
         self.clip_parser = ClipsParser(clips)
         self.inputs = []
         self.tracks = []
-        self.outputs = []
+        self.maps = []
+        self.output_options = Output(output_file=self.output_file)
 
     def _read_json_from_file(self, json_file):
         try:
@@ -138,20 +166,23 @@ class JsonToFFmpeg:
     def _generate_ffmpeg_parts(self):
         all_clips = self.clip_parser.get_all_clips()
         for i, clip in enumerate(all_clips):
-            input_parser = Input(clip)
+            input_parser = Input(clip, self.config_data)
             input_part = input_parser.get_input()
             if input_part:
                 self.inputs.append(input_part)
-            track_parser = Track(clip, i+1)
+            track_parser = Track(clip, i+1, self.config_data)
             track_part = track_parser.get_tracks()
             if track_part:
                 self.tracks.append(track_part)
+            self.maps.append(f"-map {i}:{clip.get('type', 'v')}")
+        
+        self.output_options = self.output_options.build_output()
 
     def build_ffmpeg_from_parts(self):
-        return " ".join(self.inputs + self.tracks + self.outputs)
+        self._generate_ffmpeg_parts()
+        return "ffmpeg " + " ".join(self.inputs + self.tracks + self.maps + [self.output_options])
 
 
 if __name__ == "__main__":
-    video = JsonToFFmpeg("video.json")
-    video._generate_ffmpeg_parts()
+    video = JsonToFFmpeg("video.json", "config.json", "final_output.mp4")
     print(video.build_ffmpeg_from_parts())
