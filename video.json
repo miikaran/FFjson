@@ -5,55 +5,89 @@
     "fps": 30,
     "clips": [
         {
-        "id": "clip1",
-        "type": "video",
-        "file": "video1.mp4",
-        "format": "mp4",
-        "frameRate": "30",
-        "pixelFormat": "yuv420p",
-        "codec": "libx264",
-        "bitRate": "1000k",
-        "duration": "60",
-        "startTime": "0",
-        "endTime": "60",
-        "additionalOptions": ["-vf", "scale=1280:720"]
+          "id": "clip1",
+          "type": "video",
+          "file": "input1.mp4",
+          "format": "mp4",
+          "frameRate": 30,
+          "pixelFormat": "yuv420p",
+          "codec": "h264",
+          "bitRate": "2M",
+          "startTime": 5,
+          "duration": 10,
+          "filters": {
+            "scale": "1280:720",
+            "fps": 30
+          }
         },
         {
-        "id": "clip2",
-        "type": "audio",
-        "file": "audio1.mp3",
-        "format": "mp3",
-        "codec": "aac",
-        "bitRate": "192k",
-        "sampleRate": "44100",
-        "channels": "2",
-        "duration": "60",
-        "startTime": "0",
-        "endTime": "60"
+          "id": "clip2",
+          "type": "audio",
+          "file": "input2.mp3",
+          "format": "mp3",
+          "codec": "aac",
+          "sampleRate": 44100,
+          "channels": 2,
+          "startTime": 2,
+          "duration": 12,
+          "filters": {
+            "volume": "0.8",
+            "aresample": 44100
+          }
         },
         {
-        "id": "clip3",
-        "type": "text",
-        "filters": {
-            "text": "Sample Text Overlay",
-            "fontSize": "24",
+          "id": "clip3",
+          "type": "text",
+          "filters": {
+            "text": "Hello, World!",
+            "fontSize": 24,
             "fontColor": "white",
-            "borderWidth": "2",
+            "borderWidth": 2,
             "borderColor": "black",
-            "shadowColor": "black",
-            "shadowX": "2",
-            "shadowY": "2"
+            "shadowColor": "gray",
+            "shadowX": 2,
+            "shadowY": 2
+          },
+          "duration": 5
         },
-        "duration": "60",
-        "startTime": "0",
-        "endTime": "60"
+        {
+            "id": "clip4",
+            "type": "video",
+            "file": "video1.mp4",
+            "start_time": 0,
+            "duration": 10,
+            "filters": {
+                "scale": "1920x1080"
+            }
+        },
+        {
+        "id": "clip5",
+        "type": "video",
+        "file": "video2.mp4",
+        "start_time": 0,
+        "duration": 10,
+        "filters": {
+            "scale": "640x360",
+            "overlay": "W-w-10:H-h-10"
         }
-    ],
-    "output": {
-        "outputFile": "final_output.mp4",
-        "codec": "libx264",
-        "audioCodec": "aac",
-        "resolution": "1280x720",
-        "additionalOptions": ["-preset", "fast", "-crf", "23"]
-    }
+        }
+      ],
+      "scenes": [
+        {
+          "id": "scene1",
+          "clips": ["clip1", "clip2"],
+          "transitions": ["wipe", "fade"],
+          "effects": ["blur", "keying"]
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "This is a subtitle!",
+          "start_time": 0,
+          "end_time": 5,
+          "position": "bottom",
+          "color": "yellow",
+          "font": "Arial.ttf"
+        }
+      ]
   }

@@ -1,28 +1,23 @@
+import logging
 import json
+from typing import List, Dict
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class ClipsParser:
-    def __init__(self, source):
+    def __init__(self, source: List[Dict]):
         self.source = source
-        self.clip_types = ["video", "audio", "text"]
-        self.videos = []
-        self.audios = []
-        self.texts = []
-        self.parse_clips(self.source)
-    
-    def parse_clips(self, clips):
-        for clip in clips:
-            clip_type = clip.get("type", None)
-            if clip_type and clip_type in self.clip_types:
-                if clip_type == "video":
-                    self.videos.append(clip)
-                elif clip_type == "audio":
-                    self.audios.append(clip)
-                elif clip_type == "text":
-                    self.texts.append(clip)
-    
-    def get_all_clips(self):
-        return self.videos + self.audios + self.texts
+        self.clips_by_type = {"video": [], "audio": [], "text": []}
+        self.parse_clips()
+
+    def parse_clips(self):
+        for clip in self.source:
+            clip_type = clip.get("type")
+            if clip_type in self.clips_by_type:
+                self.clips_by_type[clip_type].append(clip)
+
+    def get_all_clips(self) -> List[Dict]:
+        return sum(self.clips_by_type.values(), [])
 
 
 class Clip:
@@ -34,11 +29,7 @@ class Clip:
 
 class Input(Clip):
     def __init__(self, clip, config):
-        super().__init__(
-            clip["id"], 
-            clip["type"], 
-            clip.get("filters", [])
-        )
+        super().__init__(clip["id"], clip["type"], clip.get("filters", []))
         self.clip = clip
         self.config = config
         self.file = "color=c=black:s=640x720:d=10" if clip["type"] == "text" else clip.get("file")
@@ -54,7 +45,6 @@ class Input(Clip):
         self.end_time = clip.get("endTime")
         self.additional_options = clip.get("additionalOptions", [])
 
-        # Use mappings from config
         self.input_mappings = self.config["input_mappings"]
         self.input_parts = []
         if self.type in ("video", "audio", "text"):
@@ -67,25 +57,20 @@ class Input(Clip):
                 self.input_parts.append(f"{ffmpeg_label} {value}")
         if self.additional_options:
             self.input_parts.extend(self.additional_options)
-    
+
     def get_input(self):
         return " ".join(self.input_parts) if self.input_parts else None
 
 
 class Track(Clip):
     def __init__(self, clip, clip_index, config):
-        super().__init__(
-            clip["id"], 
-            clip["type"], 
-            clip.get("filters", [])
-        )
+        super().__init__(clip["id"], clip["type"], clip.get("filters", []))
         self.clip = clip
         self.clip_index = clip_index
         self.config = config
         self.filters = self.clip.get("filters", {})
         self.additional_options = clip.get("additionalOptions", [])
-        
-        # Use mappings from config
+
         self.filter_mappings = self.config["filter_mappings"]
         self.type_to_label_mapping = self.config["type_to_label_mapping"]
         self.track_parts = []
@@ -98,7 +83,7 @@ class Track(Clip):
             return
         type_label = self.type_to_label_mapping.get(clip_type)
         if not type_label:
-            raise ValueError(f"Invalid type label for clip type: {clip_type}")    
+            raise ValueError(f"Invalid type label for clip type: {clip_type}")
         source_stream_specifier = f"[{self.clip_index-1}:{type_label}]"
         reference_stream_specifier = f"[{self.clip_index}:{type_label}]"
         filter_parts = [source_stream_specifier]
@@ -119,9 +104,74 @@ class Track(Clip):
             if clip_index < filters_len - 1:
                 filter_parts += ":"
         return filter_parts
-    
+
     def get_tracks(self):
         return " \\".join(self.track_parts)
+
+
+class Scene:
+    def __init__(self, scene_data: Dict, config: Dict):
+        self.id = scene_data.get("id")
+        self.clips = scene_data.get("clips", [])
+        self.nested_scenes = scene_data.get("nestedScenes", [])
+        self.transitions = scene_data.get("transitions", [])
+        self.effects = scene_data.get("effects", [])
+        self.timeline = scene_data.get("timeline", [])
+        self.config = config
+        self.scene_parts = []
+
+    def build_scene(self):
+        for nested_scene in self.nested_scenes:
+            nested_scene_obj = Scene(nested_scene, self.config)
+            nested_scene_obj.build_scene()
+            self.scene_parts.append(nested_scene_obj.get_scene())
+
+        for clip_index, clip in enumerate(self.clips):
+            source_specifier = f"[{clip_index}:v]"
+            transition_filter = self._apply_transitions(clip_index)
+            effect_filter = self._apply_effects(clip_index)
+            if transition_filter:
+                self.scene_parts.append(f"{source_specifier}{transition_filter}")
+            if effect_filter:
+                self.scene_parts.append(f"{source_specifier}{effect_filter}")
+
+    def _apply_transitions(self, clip_index):
+        if clip_index < len(self.transitions):
+            transition = self.transitions[clip_index]
+            if transition == "wipe":
+                return "wipe=duration=1:angle=90"
+            elif transition == "zoom":
+                return "zoompan=z='zoom+0.1':d=25"
+            elif transition == "slide":
+                return "slide=duration=1:direction=left"
+        return ""
+
+    def _apply_effects(self, clip_index):
+        if clip_index < len(self.effects):
+            effect = self.effects[clip_index]
+            if effect == "blur":
+                return "boxblur=luma_radius=2:luma_power=1"
+            elif effect == "keying":
+                return "colorkey=color=green:similarity=0.1"
+        return ""
+
+    def get_scene(self) -> str:
+        return " \\".join(self.scene_parts)
+
+
+class Subtitle:
+    def __init__(self, subtitle_data: Dict):
+        self.text = subtitle_data.get("text", "")
+        self.start_time = subtitle_data.get("start_time", 0)
+        self.end_time = subtitle_data.get("end_time", 5)
+        self.position = subtitle_data.get("position", "bottom")
+        self.color = subtitle_data.get("color", "white")
+        self.font = subtitle_data.get("font", "Arial")
+
+    def generate_subtitle_command(self) -> str:
+        position_map = {"bottom": "10:10", "top": "10:main_h-10", "center": "main_w/2:main_h/2"}
+        position = position_map.get(self.position, "10:10")
+        return f"drawtext=text='{self.text}':x={position}:fontcolor={self.color}:fontsize=24:fontfile='{self.font}'"
 
 
 class Output:
@@ -170,10 +220,11 @@ class JsonToFFmpeg:
             input_part = input_parser.get_input()
             if input_part:
                 self.inputs.append(input_part)
-            track_parser = Track(clip, i+1, self.config_data)
+            track_parser = Track(clip, i, self.config_data)
             track_part = track_parser.get_tracks()
             if track_part:
                 self.tracks.append(track_part)
+
             self.maps.append(f"-map {i}:{clip.get('type', 'v')}")
         
         self.output_options = self.output_options.build_output()
@@ -184,5 +235,13 @@ class JsonToFFmpeg:
 
 
 if __name__ == "__main__":
-    video = JsonToFFmpeg("video.json", "config.json", "final_output.mp4")
-    print(video.build_ffmpeg_from_parts())
+    video_json_file = "video.json" 
+    config_json_file = "config.json" 
+    output_file = "final_output.mp4"
+    try:
+        ffmpeg_generator = JsonToFFmpeg(video_json_file, config_json_file, output_file)
+        ffmpeg_command = ffmpeg_generator.build_ffmpeg_from_parts()
+        print("Generated FFmpeg Command:")
+        print(ffmpeg_command)
+    except Exception as e:
+        logging.error(f"Error generating FFmpeg command: {e}")
