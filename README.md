@@ -91,4 +91,21 @@ Example JSON Input, found in -> ***data/video.json***
         }
       ]
   }
+```
+Output
+```sh
+ffmpeg
+# INPUT clip1 (video)
+\ -i input1.mp4 -f mp4 -r 30 -pix_fmt yuv420p -c h264 -b:v 2M -t 10 -ss 5
+# INPUT clip2 (audio)
+\ -i video1.mp4 -t 10 -i video2.mp4 -t 10 -i input2.mp3 -f mp3 -c aac -ar 44100 -ac 2 -t 12 -ss 2
+# INPUT clip3 (text)
+\ -i color=c=black:s=640x720:d=10 -t 5 [-1:v]scale=1280:720:fps=30[0:v]
+# FILTERS scene1
+\ [0:v]scale=1920x1080[1:v] [1:v]scale=640x360:overlay=W-w-10:H-h-10[2:v]
+# FILTERS scene2
+\ [2:a]volume=0.8:aresample=44100[3:a] [3:v]drawtext=text=Hello, World!:fontsize=24:fontcolor=white:borderw=2:bordercolor=black:shadowcolor=gray:shadowx=2:shadowy=2[4:v]
+# OUTPUT
+\ -map 0:video -map 1:video -map 2:video -map 3:audio -map 4:text -c:v libx264 -c:a aac final_output.mp4
+```
 
