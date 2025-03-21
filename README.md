@@ -1,5 +1,8 @@
-# JSON -> FFmpeg -> Video
-
+<div align="center">
+    <img src="https://github.com/user-attachments/assets/0b66068d-cd62-426c-b144-b72847cf30c4" width="100">
+    <h1>JSON -> FFmpeg -> Video<h1/>
+</div>
+        
 ## Overview
 This is a small proof-of-concept ***(in-progress)*** Python library designed to abstract video processing using FFmpeg with JSON mappings. Inspired by the **JSON2Video** API, this project allows for automated video creation by defining video parameters in JSON.
 
