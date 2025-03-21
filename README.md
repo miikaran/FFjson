@@ -1,7 +1,7 @@
 # JSON -> FFmpeg -> Video
 
 ## Overview
-This is a proof-of-concept ***(in-progress)*** Python library designed to abstract video processing using FFmpeg with JSON mappings. Inspired by the **JSON2Video** API, this project allows for automated video creation by defining video parameters in JSON.
+This is a small proof-of-concept ***(in-progress)*** Python library designed to abstract video processing using FFmpeg with JSON mappings. Inspired by the **JSON2Video** API, this project allows for automated video creation by defining video parameters in JSON.
 
 ## Features
 - Convert JSON into FFmpeg command-line arguments.
